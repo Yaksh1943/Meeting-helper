@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+sqlmodel
+faiss-cpu
+openai
+sendgrid
+python-dotenv
+pytest
+python-jose
+numpy
+PyJWT
+apscheduler
