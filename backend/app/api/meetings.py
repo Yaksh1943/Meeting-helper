@@ -11,18 +11,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/")
-def create_meeting(data:CreateMeetingRequest, session: Session = Depends(get_session)):
-    title = data.get("title")
-    host_email = data.get("host_email")
+def create_meeting(data: CreateMeetingRequest, session: Session = Depends(get_session)):
+    title = getattr(data, "title", None)
+    host_email = getattr(data, "host_email", None)
+
     if not title or not host_email:
-        raise HTTPException(400, "Missing title or host_email")
-    meeting = Meeting(title= title, host_email=host_email)
+        # Use named args for clarity
+        raise HTTPException(status_code=400, detail="Missing title or host_email")
+
+    meeting = Meeting(title=title, host_email=host_email)
     session.add(meeting)
     session.commit()
     session.refresh(meeting)
 
     token, room = generate_room_token(meeting.id, host_email)
-    return {"meeting_id": meeting.id, "room":room,"token":token}
+    return {"meeting_id": meeting.id, "room": room, "token": token}
 
 
 @router.post("/{meeting_id}/invite")
