@@ -37,6 +37,11 @@ class ActionItem(SQLModel, table=True):
     meeting_id: int
     text: str    
 
+class Decision(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    meeting_id: int
+    text: str
+
 class CreateMeetingRequest(SQLModel):
     title: str
     host_email: str
@@ -47,4 +52,4 @@ class InviteParticipantsRequest(SQLModel):
 class SummaryType:
     FINAL = "final"
     SUMMARY = "summary"
-    TIMELINE = "timeline"    
+    TIMELINE = "timeline"

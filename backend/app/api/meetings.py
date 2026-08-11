@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select 
+from sqlmodel import Session, select
 from app.models.db import get_session
 from app.models.schema import Meeting, Participant, CreateMeetingRequest, InviteParticipantsRequest, SummaryType
 from app.services.livekit_tokens import generate_room_token
@@ -10,13 +10,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+
 @router.post("/")
 def create_meeting(data: CreateMeetingRequest, session: Session = Depends(get_session)):
     title = getattr(data, "title", None)
     host_email = getattr(data, "host_email", None)
 
     if not title or not host_email:
-        # Use named args for clarity
         raise HTTPException(status_code=400, detail="Missing title or host_email")
 
     meeting = Meeting(title=title, host_email=host_email)
@@ -29,16 +29,21 @@ def create_meeting(data: CreateMeetingRequest, session: Session = Depends(get_se
 
 
 @router.post("/{meeting_id}/invite")
-def invite_participants(meeting_id: int, data:InviteParticipantsRequest, session: Session = Depends(get_session)):
+def invite_participants(meeting_id: int, data: InviteParticipantsRequest, session: Session = Depends(get_session)):
     emails = data.emails
     meeting = session.get(Meeting, meeting_id)
     if not meeting:
         raise HTTPException(404, "Meeting not found")
-    
+
     for email in emails:
-        p = Participant(meeting_id=meeting_id, name= email.split("@")[0], email=email)
+        p = Participant(meeting_id=meeting_id, name=email.split("@")[0], email=email)
         session.add(p)
-        send_email(email, f"Invitation to {meeting.title}",f"Join meeting {meeting.id}")
+        join_url = f"http://localhost:3000/rooms/{meeting.id}"
+        send_email(
+            email,
+            f"You're invited: {meeting.title}",
+            f"You've been invited to a meeting: {meeting.title}\n\nJoin here: {join_url}\n\nSee you there!"
+        )
     session.commit()
     return {"invited": emails}
 
@@ -53,7 +58,7 @@ def start_meeting(meeting_id: int, session: Session = Depends(get_session)):
     meeting.start_ts = now_ts()
     session.add(meeting)
     session.commit()
-    return {"status": "started"}  
+    return {"status": "started"}
 
 
 @router.post("/{meeting_id}/remind-missing")
@@ -68,10 +73,26 @@ def remind_missing(meeting_id: int, session: Session = Depends(get_session)):
     return {"reminded": [p.email for p in missing]}
 
 
+def _format_summary_email(summary_data: dict) -> str:
+    """Builds a readable plain-text email body instead of dumping a raw dict."""
+    parts = [f"Meeting Summary:\n\n{summary_data.get('summary', '')}"]
+
+    action_items = summary_data.get("action_items") or []
+    if action_items:
+        parts.append("Action Items:\n" + "\n".join(f"- {item}" for item in action_items))
+
+    decisions = summary_data.get("decisions") or []
+    if decisions:
+        parts.append("Decisions:\n" + "\n".join(f"- {d}" for d in decisions))
+
+    return "\n\n".join(parts)
+
+
 @router.post("/{meeting_id}/end")
 def end_meeting(meeting_id: int, session: Session = Depends(get_session)):
-    from app.models.schema import TranscriptSegment, Summary, ActionItem
+    from app.models.schema import TranscriptSegment, Summary, ActionItem, Decision
     from app.services.summarizer import final_summary
+    from app.services.chunking import chunk_text
     from app.services.embeddings import add_to_index
     from app.utils.time import now_ts
 
@@ -92,13 +113,19 @@ def end_meeting(meeting_id: int, session: Session = Depends(get_session)):
     session.add(summary)
     for ai in summary_data.get("action_items", []):
         session.add(ActionItem(meeting_id=meeting_id, text=ai))
+    for d in summary_data.get("decisions", []):
+        session.add(Decision(meeting_id=meeting_id, text=d))
     session.commit()
+
+    # Real RAG indexing: chunk the actual transcript (not just the summary)
+    # so Q&A can retrieve specific details, not only high-level points.
+    for chunk in chunk_text(full_text, max_len=120):
+        add_to_index(meeting_id, chunk)
 
     add_to_index(meeting_id, summary_data["summary"])
 
-    send_email(meeting.host_email, "Final Meeting Summary", str(summary_data))
+    send_email(meeting.host_email, "Final Meeting Summary", _format_summary_email(summary_data))
 
     logger.info("Endpoint return data: %s", summary_data)
 
     return {"status": "ended", "summary": summary_data}
-

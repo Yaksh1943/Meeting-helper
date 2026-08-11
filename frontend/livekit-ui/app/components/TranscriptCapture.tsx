@@ -39,6 +39,23 @@ export default function TranscriptCapture({ meetingId, participantName, isActive
   }, []);
 
   useEffect(() => {
+    if (isSupported && !permissionGranted) {
+      requestMicrophonePermission();
+    }
+  }, [isSupported]);
+
+  useEffect(() => {
+    if (isActive && isSupported && !isListening && permissionGranted) {
+      if (!meetingStartTimeRef.current) {
+        meetingStartTimeRef.current = Date.now();
+      }
+      startListening();
+    } else if (!isActive && isListening) {
+      stopListening();
+    }
+  }, [isActive, isSupported, permissionGranted]);
+
+  useEffect(() => {
     if (isActive && isSupported && !isListening && permissionGranted) {
       if (!meetingStartTimeRef.current) {
         meetingStartTimeRef.current = Date.now();

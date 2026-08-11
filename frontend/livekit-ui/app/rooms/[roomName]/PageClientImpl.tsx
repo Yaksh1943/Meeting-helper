@@ -5,7 +5,11 @@ import { decodePassphrase } from '@/lib/client-utils';
 import { DebugMode } from '@/lib/Debug';
 import { KeyboardShortcuts } from '@/lib/KeyboardShortcuts';
 import { RecordingIndicator } from '@/lib/RecordingIndicator';
-import { SettingsMenu } from '@/lib/SettingsMenu';
+import dynamic from 'next/dynamic';
+const SettingsMenu = dynamic(
+  () => import('@/lib/SettingsMenu').then((mod) => mod.SettingsMenu),
+  { ssr: false }
+);
 import { ConnectionDetails } from '@/lib/types';
 import {
   formatChatMessageLinks,
@@ -25,7 +29,6 @@ import { useRouter } from 'next/navigation';
 import { useSetupE2EE } from '@/lib/useSetupE2EE';
 import { useLowCPUOptimizer } from '@/lib/usePerfomanceOptimiser';
 import SummaryPanel from '../../components/SummaryPanel';
-import QAChatPanel from '../../components/QAChatPanel';
 import TranscriptCapture from '../../components/TranscriptCapture';
 import axios from 'axios';
 import { API_CONFIG } from '@/lib/api-config';

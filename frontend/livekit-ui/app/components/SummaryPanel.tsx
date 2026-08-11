@@ -25,11 +25,14 @@ export default function SummaryPanel({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!meetingId) return;
-    fetchSummaries();
-    const id = setInterval(fetchSummaries, 10000);
-    return () => clearInterval(id);
-  }, [meetingId]);
+  if (!meetingId) return;
+  fetchSummaries(); // always fetch once, so the summary page still shows timeline history
+
+  if (meetingEnded) return; // don't poll once the meeting is over, nothing will change
+
+  const id = setInterval(fetchSummaries, 10000);
+  return () => clearInterval(id);
+}, [meetingId, meetingEnded]);
 
   const fetchSummaries = async () => {
     setLoading(true);
