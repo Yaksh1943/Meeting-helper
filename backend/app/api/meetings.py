@@ -4,6 +4,7 @@ from app.models.db import get_session
 from app.models.schema import Meeting, Participant, CreateMeetingRequest, InviteParticipantsRequest, SummaryType
 from app.services.livekit_tokens import generate_room_token
 from app.services.email_service import send_email
+from app.utils.config import get_env
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/")
+@router.post("")
 def create_meeting(data: CreateMeetingRequest, session: Session = Depends(get_session)):
     title = getattr(data, "title", None)
     host_email = getattr(data, "host_email", None)
@@ -38,7 +39,8 @@ def invite_participants(meeting_id: int, data: InviteParticipantsRequest, sessio
     for email in emails:
         p = Participant(meeting_id=meeting_id, name=email.split("@")[0], email=email)
         session.add(p)
-        join_url = f"http://localhost:3000/rooms/{meeting.id}"
+        frontend_url = get_env("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+        join_url = f"{frontend_url}/rooms/{meeting.id}"
         send_email(
             email,
             f"You're invited: {meeting.title}",
@@ -99,6 +101,8 @@ def end_meeting(meeting_id: int, session: Session = Depends(get_session)):
     meeting = session.get(Meeting, meeting_id)
     if not meeting:
         raise HTTPException(404, "Meeting not found")
+    if meeting.end_ts is not None:
+        return {"status": "ended", "detail": "Meeting was already ended"}
     meeting.end_ts = now_ts()
 
     transcript_segments = session.exec(

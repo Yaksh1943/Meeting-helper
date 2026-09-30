@@ -5,6 +5,7 @@ faiss-cpu
 openai
 python-dotenv
 pytest
+httpx
 python-jose
 numpy
 PyJWT

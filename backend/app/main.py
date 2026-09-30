@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+import os
+
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -6,6 +8,7 @@ from dotenv import load_dotenv
 import logging
 
 from app.api import meetings, transcripts, summaries, qa, livekit
+from app.api.auth import require_api_key
 from app.models.db import init_db, engine
 from app.models.schema import Meeting, TranscriptSegment, Summary, SummaryType
 from app.services.summarizer import summarize_window
@@ -14,21 +17,32 @@ from sqlmodel import Session, select
 load_dotenv()
 app = FastAPI(title="Meeting Helper API")
 
-# CORS
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Routers
-app.include_router(meetings.router, prefix="/api/meetings", tags=["meetings"])
-app.include_router(transcripts.router, prefix="/api/meetings", tags=["transcripts"])
-app.include_router(summaries.router, prefix="/api/meetings", tags=["summaries"])
-app.include_router(qa.router, prefix="/api/meetings", tags=["qa"])
-app.include_router(livekit.router)
+protected_router_options = {"dependencies": [Depends(require_api_key)]}
+app.include_router(meetings.router, prefix="/api/meetings", tags=["meetings"], **protected_router_options)
+app.include_router(transcripts.router, prefix="/api/meetings", tags=["transcripts"], **protected_router_options)
+app.include_router(summaries.router, prefix="/api/meetings", tags=["summaries"], **protected_router_options)
+app.include_router(qa.router, prefix="/api/meetings", tags=["qa"], **protected_router_options)
+app.include_router(livekit.router, **protected_router_options)
+
+
+@app.get("/health", tags=["health"])
+def health_check():
+    return {"status": "ok"}
 
 scheduler = BackgroundScheduler()
 

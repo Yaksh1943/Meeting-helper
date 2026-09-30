@@ -15,7 +15,7 @@ export default function Page() {
 
   const createMeeting = async () => {
     try {
-      const res = await axios.post(`${API_CONFIG.MEETINGS_BASE}`, {
+      const res = await axios.post(`${API_CONFIG.MEETINGS_BASE}/`, {
         title,
         host_email: hostEmail,
       });

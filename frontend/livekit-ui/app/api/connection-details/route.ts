@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
+
 export async function GET(request: NextRequest) {
   try {
     const roomName = request.nextUrl.searchParams.get('roomName');
@@ -9,9 +11,15 @@ export async function GET(request: NextRequest) {
       return new NextResponse('Missing required query parameters', { status: 400 });
     }
 
-    const res = await fetch(
-  `http://localhost:8000/api/connection-details?roomName=${roomName}&participantName=${participantName}`
-);
+    const url = new URL('/connection-details', backendUrl);
+    url.searchParams.set('roomName', roomName);
+    url.searchParams.set('participantName', participantName);
+
+    const res = await fetch(url, {
+      headers: process.env.BACKEND_API_TOKEN
+        ? { 'X-API-Key': process.env.BACKEND_API_TOKEN }
+        : undefined,
+    });
 
     if (!res.ok) {
       return new NextResponse('Failed to fetch from backend', { status: 500 });

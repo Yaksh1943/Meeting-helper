@@ -55,17 +55,6 @@ export default function TranscriptCapture({ meetingId, participantName, isActive
     }
   }, [isActive, isSupported, permissionGranted]);
 
-  useEffect(() => {
-    if (isActive && isSupported && !isListening && permissionGranted) {
-      if (!meetingStartTimeRef.current) {
-        meetingStartTimeRef.current = Date.now();
-      }
-      startListening();
-    } else if (!isActive && isListening) {
-      stopListening();
-    }
-  }, [isActive, isSupported, permissionGranted]);
-
   const requestMicrophonePermission = async () => {
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
